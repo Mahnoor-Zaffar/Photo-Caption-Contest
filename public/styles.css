@@ -384,3 +384,65 @@ textarea { resize: vertical; min-height: 88px; }
 .caption-voted {
   border-color: #22c55e;
 }
+
+.wake-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.wake-overlay.hidden {
+  display: none;
+}
+
+.wake-card {
+  text-align: center;
+  padding: 32px;
+  max-width: 320px;
+}
+
+.wake-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 20px;
+  border: 3px solid var(--hairline);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.wake-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.wake-desc {
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.detail-actions {
+  margin-bottom: 20px;
+}
+
+.char-count {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-align: right;
+}
+
+.char-count-warn {
+  color: #f59e0b;
+}

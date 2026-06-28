@@ -135,6 +135,7 @@ async function loadImages() {
 async function openImage(id) {
   currentImageId = id;
   setLoading("captionList", true);
+  history.replaceState({ imageId: id }, "", `?image=${id}`);
 
   try {
     const { data } = await api(
@@ -220,7 +221,31 @@ document.getElementById("backBtn").onclick = () => {
   document.getElementById("heroSection").style.display = "block";
   document.getElementById("authSection").style.display = "block";
   document.getElementById("gallery").style.display = "block";
+  currentImageId = null;
+  history.replaceState({}, "", window.location.pathname);
 };
+
+document.getElementById("shareBtn").onclick = async () => {
+  const url = window.location.href;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Photo Caption Contest", url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      showToast("Link copied!", "success");
+    }
+  } catch {
+    showToast("Could not share link");
+  }
+};
+
+function updateCharCount() {
+  const len = captionText.value.length;
+  charCount.textContent = `${len} / 280`;
+  charCount.classList.toggle("char-count-warn", len >= 260);
+}
+
+document.getElementById("captionText").addEventListener("input", updateCharCount);
 
 document.getElementById("showRegister").onclick = (e) => {
   e.preventDefault();
@@ -309,5 +334,35 @@ document.getElementById("submitCaptionBtn").onclick = async () => {
   }
 };
 
-loadMe();
-loadImages();
+async function waitForApi() {
+  const overlay = document.getElementById("wakeOverlay");
+  const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+  for (let attempt = 0; attempt < (isLocal ? 3 : 30); attempt += 1) {
+    try {
+      const res = await fetch(`${API}/health`, { credentials: "include" });
+      if (res.ok) {
+        overlay.classList.add("hidden");
+        return;
+      }
+    } catch {
+      // Server may be cold-starting on Render
+    }
+    await new Promise((r) => setTimeout(r, isLocal ? 500 : 2000));
+  }
+
+  overlay.classList.add("hidden");
+}
+
+async function boot() {
+  await waitForApi();
+  await loadMe();
+  await loadImages();
+
+  const imageId = new URLSearchParams(window.location.search).get("image");
+  if (imageId) {
+    openImage(imageId);
+  }
+}
+
+boot();

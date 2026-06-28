@@ -70,4 +70,13 @@ describe("Photo Caption Contest API", () => {
       expect(res.status).toBe(422);
     });
   });
+
+  describe("Unknown API routes", () => {
+    it("returns 404 for unmatched paths", async () => {
+      const res = await request(app).get("/api/does-not-exist");
+
+      expect(res.status).toBe(404);
+      expect(res.body.message).toMatch(/not found/i);
+    });
+  });
 });

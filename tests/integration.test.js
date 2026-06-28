@@ -49,6 +49,7 @@ describe("Integration (requires PostgreSQL)", () => {
           userA.email,
           userB.email,
           `test_c_${runId}@example.com`,
+          `test_d_${runId}@example.com`,
         ],
       },
     });
@@ -156,5 +157,30 @@ describe("Integration (requires PostgreSQL)", () => {
       .set("Authorization", `Bearer ${tokenB}`);
 
     expect(imageRes.body.data.myVoteCaptionId).toBe(secondCaptionId);
+  });
+
+  itIfDb("allows only one concurrent vote per user on the same caption", async () => {
+    const userD = {
+      username: `testuser_d_${runId}`,
+      email: `test_d_${runId}@example.com`,
+      password,
+    };
+
+    const reg = await request(app).post("/api/auth/register").send(userD);
+    const tokenD = reg.body.data.token;
+
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        request(app)
+          .post(`/api/captions/${captionId}/votes`)
+          .set("Authorization", `Bearer ${tokenD}`),
+      ),
+    );
+
+    const successes = responses.filter((r) => [200, 201].includes(r.status));
+    const conflicts = responses.filter((r) => r.status === 409);
+
+    expect(successes.length).toBe(1);
+    expect(conflicts.length).toBe(4);
   });
 });

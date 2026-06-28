@@ -11,6 +11,7 @@ import { getCorsOrigin } from "./config/env.js";
 import logger from "./config/logger.js";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
+import { ApiError } from "./utils/ApiError.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +38,10 @@ app.get("/", (_req, res) => {
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api", routes);
+
+app.use("/api", (_req, _res, next) => {
+  next(new ApiError(404, "API route not found"));
+});
 
 app.use(errorHandler);
 

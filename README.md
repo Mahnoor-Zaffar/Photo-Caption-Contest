@@ -31,6 +31,8 @@ REST API backend for a photo caption contest platform built with **Node.js**, **
 - Framer-inspired **frontend** at `/` with token refresh, toasts, and sort tabs
 - **One vote per image** — changing your pick moves the vote (DB-enforced)
 - **Cache hit metrics** on `/api/health` (PRD target: >80% under load)
+- **Graceful shutdown** on `SIGTERM`/`SIGINT` for zero-downtime deploys
+- **Shareable contest links** (`?image=uuid`) with cold-start loader for Render free tier
 
 ## Demo Video
 

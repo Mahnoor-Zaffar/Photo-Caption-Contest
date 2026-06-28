@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Photo Caption Contest — submit witty captions, vote for favorites, and climb the leaderboard." />
+  <meta property="og:title" content="Photo Caption Contest" />
+  <meta property="og:description" content="Write the caption. Win the laugh. A full-stack contest app built with Express and PostgreSQL." />
+  <meta property="og:type" content="website" />
   <title>Photo Caption Contest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -10,6 +14,14 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
+  <div id="wakeOverlay" class="wake-overlay" aria-live="polite">
+    <div class="wake-card">
+      <div class="wake-spinner" aria-hidden="true"></div>
+      <p class="wake-title">Waking up the server…</p>
+      <p class="wake-desc">Free-tier hosting may take up to a minute after idle.</p>
+    </div>
+  </div>
+
   <nav class="top-nav">
     <span class="logo">Caption Contest</span>
     <span id="userLabel" class="nav-status">Not signed in</span>
@@ -58,6 +70,9 @@
 
     <section id="detail" class="detail">
       <button id="backBtn" class="btn btn-secondary btn-translucent" style="margin-bottom:20px">← Back to gallery</button>
+      <div class="detail-actions">
+        <button id="shareBtn" class="btn btn-secondary btn-translucent" type="button">Share contest</button>
+      </div>
       <div class="mockup-tile">
         <img id="detailImg" alt="Contest image" />
       </div>
@@ -67,7 +82,8 @@
       <div id="captionForm" class="auth-panel hidden">
         <h2 style="font-size:22px;font-weight:700;letter-spacing:-0.8px;margin-bottom:16px">Submit your caption</h2>
         <div class="field">
-          <textarea id="captionText" maxlength="280" placeholder="Write something witty..."></textarea>
+          <textarea id="captionText" maxlength="280" placeholder="Write something witty..." aria-describedby="charCount"></textarea>
+          <p id="charCount" class="char-count">0 / 280</p>
         </div>
         <button id="submitCaptionBtn" class="btn btn-primary">Submit caption</button>
       </div>

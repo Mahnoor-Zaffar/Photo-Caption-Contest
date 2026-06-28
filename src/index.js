@@ -38,6 +38,22 @@ const startServer = async () => {
       }
       throw error;
     });
+
+    const shutdown = async (signal) => {
+      logger.info(`${signal} received — shutting down gracefully`);
+      server.close(async () => {
+        await sequelize.close().catch(() => {});
+        logger.info("Server closed");
+        process.exit(0);
+      });
+      setTimeout(() => {
+        logger.error("Forced shutdown after timeout");
+        process.exit(1);
+      }, 10000).unref();
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
   } catch (error) {
     logger.error({ err: error }, "Failed to start server");
     process.exit(1);
