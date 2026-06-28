@@ -1,0 +1,29 @@
+databases:
+  - name: photo-caption-db
+    plan: free
+    databaseName: photo_caption_contest
+    user: photo_caption_user
+
+services:
+  - type: web
+    name: photo-caption-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CACHE_TTL_SECONDS
+        value: 60
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: photo-caption-db
+          property: connectionString
