@@ -1,4 +1,4 @@
-import { Image, Caption, User } from "../models/index.js";
+import { Image, Caption, User, Vote } from "../models/index.js";
 import sequelize from "../config/sequelize.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -71,6 +71,15 @@ export const getImageById = asyncHandler(async (req, res) => {
     offset,
   });
 
+  let myVoteCaptionId = null;
+  if (req.user) {
+    const myVote = await Vote.findOne({
+      where: { userId: req.user.id, imageId: id },
+      attributes: ["captionId"],
+    });
+    myVoteCaptionId = myVote?.captionId ?? null;
+  }
+
   const formatted = {
     id: image.id,
     title: image.title,
@@ -79,6 +88,7 @@ export const getImageById = asyncHandler(async (req, res) => {
     createdAt: image.createdAt,
     captions: rows.map(formatCaption),
     sort,
+    myVoteCaptionId,
     pagination: {
       page,
       limit,

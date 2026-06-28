@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAllImages, getImageById, buildImageCacheKey } from "../controllers/image.controller.js";
 import { submitCaption } from "../controllers/caption.controller.js";
-import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { verifyJWT, optionalVerifyJWT } from "../middlewares/auth.middleware.js";
 import { cacheResponse } from "../middlewares/cache.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { validateUuidParam } from "../middlewares/uuid.middleware.js";
@@ -61,6 +61,7 @@ router.get("/images", cacheResponse("images:all"), getAllImages);
 router.get(
   "/images/:id",
   validateUuidParam("id"),
+  optionalVerifyJWT,
   cacheResponse(buildImageCacheKey),
   getImageById,
 );

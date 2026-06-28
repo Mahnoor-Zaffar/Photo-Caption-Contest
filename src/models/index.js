@@ -9,6 +9,9 @@ Caption.belongsTo(User, { foreignKey: "userId", as: "author" });
 Image.hasMany(Caption, { foreignKey: "imageId", as: "captions" });
 Caption.belongsTo(Image, { foreignKey: "imageId", as: "image" });
 
+Image.hasMany(Vote, { foreignKey: "imageId", as: "votes" });
+Vote.belongsTo(Image, { foreignKey: "imageId", as: "image" });
+
 User.hasMany(Vote, { foreignKey: "userId", as: "votes" });
 Vote.belongsTo(User, { foreignKey: "userId", as: "voter" });
 

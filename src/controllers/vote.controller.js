@@ -8,36 +8,59 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 export const voteForCaption = asyncHandler(async (req, res) => {
   const { id: captionId } = req.params;
 
-  const vote = await sequelize.transaction(async (transaction) => {
+  const result = await sequelize.transaction(async (transaction) => {
     const caption = await Caption.findByPk(captionId, { transaction });
 
     if (!caption) {
       throw new ApiError(404, "Caption not found");
     }
 
+    if (caption.userId === req.user.id) {
+      throw new ApiError(403, "You cannot vote for your own caption");
+    }
+
     const existingVote = await Vote.findOne({
-      where: { userId: req.user.id, captionId },
+      where: { userId: req.user.id, imageId: caption.imageId },
       transaction,
     });
 
     if (existingVote) {
-      throw new ApiError(409, "You have already voted for this caption");
+      if (existingVote.captionId === captionId) {
+        throw new ApiError(409, "You have already voted for this caption");
+      }
+
+      await existingVote.update({ captionId }, { transaction });
+      return { vote: existingVote, moved: true };
     }
 
-    return Vote.create(
-      { userId: req.user.id, captionId },
+    const vote = await Vote.create(
+      {
+        userId: req.user.id,
+        captionId,
+        imageId: caption.imageId,
+      },
       { transaction },
     );
+
+    return { vote, moved: false };
   });
 
-  const caption = await Caption.findByPk(captionId);
-  invalidateImageCaches(caption.imageId);
+  invalidateImageCaches(result.vote.imageId);
 
-  res.status(201).json(
+  const statusCode = result.moved ? 200 : 201;
+  const message = result.moved ? "Vote moved to this caption" : "Vote recorded";
+
+  res.status(statusCode).json(
     new ApiResponse(
-      201,
-      { id: vote.id, captionId: vote.captionId, createdAt: vote.createdAt },
-      "Vote recorded",
+      statusCode,
+      {
+        id: result.vote.id,
+        captionId: result.vote.captionId,
+        imageId: result.vote.imageId,
+        moved: result.moved,
+        createdAt: result.vote.createdAt,
+      },
+      message,
     ),
   );
 });
@@ -52,7 +75,7 @@ export const removeVote = asyncHandler(async (req, res) => {
   }
 
   const deleted = await Vote.destroy({
-    where: { userId: req.user.id, captionId },
+    where: { userId: req.user.id, imageId: caption.imageId },
   });
 
   if (!deleted) {

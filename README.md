@@ -29,6 +29,17 @@ REST API backend for a photo caption contest platform built with **Node.js**, **
 - **GitHub Actions CI** with PostgreSQL service
 - **Docker** support via `Dockerfile` and `docker-compose.yml`
 - Framer-inspired **frontend** at `/` with token refresh, toasts, and sort tabs
+- **One vote per image** — changing your pick moves the vote (DB-enforced)
+- **Cache hit metrics** on `/api/health` (PRD target: >80% under load)
+
+## Demo Video
+
+Record a walkthrough using the script in [`docs/DEMO.md`](docs/DEMO.md), then add your link here:
+
+<!-- Replace with your Loom/YouTube URL after recording -->
+**[Record demo → follow docs/DEMO.md](docs/DEMO.md)**
+
+Load test report (screenshot-ready): open [`docs/load-test-report.html`](docs/load-test-report.html) after running `npm run load-test`.
 
 ## Tech Stack
 
@@ -81,7 +92,7 @@ npm run db:reset
 | GET | `/api/images` | No | List all contest images (cached) |
 | GET | `/api/images/:id` | No | Get image with paginated captions (`?sort=votes`) |
 | POST | `/api/images/:id/captions` | JWT | Submit a caption for an image |
-| POST | `/api/captions/:id/votes` | JWT | Vote for a caption |
+| POST | `/api/captions/:id/votes` | JWT | Vote for a caption (one vote per image; moves if you change pick) |
 | DELETE | `/api/captions/:id/votes` | JWT | Remove your vote |
 
 ## Postman Demo
@@ -114,8 +125,30 @@ Runs PostgreSQL + API on port 8000 with migrations and seeds applied automatical
 
 - `GET /api/images` and `GET /api/images/:id` use read-through cache
 - Cache keys include pagination and `sort` query param
+- Authenticated image requests bypass cache (personal `myVoteCaptionId`)
 - Default TTL: 60 seconds (`CACHE_TTL_SECONDS`)
 - Cache invalidates when captions or votes change
+- Hit/miss counters exposed on `GET /api/health` under `data.cache`
+
+```bash
+npm run dev          # terminal 1
+npm run load-test    # terminal 2 — writes docs/load-test-results.md
+```
+
+See [`docs/load-test-results.md`](docs/load-test-results.md) for sample output.
+
+## Design Tradeoffs
+
+| Decision | Chosen | Alternative | Why |
+|----------|--------|-------------|-----|
+| **Votes** | One vote per image (`UNIQUE userId+imageId`) | One vote per caption | Matches real caption contests; vote *moves* instead of stacking |
+| **Cache** | In-process `node-cache` | Redis | Simpler for single-instance Render free tier; sufficient for demo traffic |
+| **Cache scope** | Skip cache when user is logged in | Cache everything | `myVoteCaptionId` is user-specific; anonymous reads stay fast |
+| **Vote counts** | SQL subquery on read | Denormalized `voteCount` column | Fewer write paths to keep correct; acceptable at portfolio scale |
+| **Auth** | JWT access + refresh (cookie + Bearer) | Sessions in Redis | Stateless API, works with Swagger and mobile clients |
+| **IDs** | UUID v4 | Auto-increment integers | Safer in public URLs; no enumeration of contest entries |
+| **Frontend** | Vanilla JS in `public/` | React SPA | Zero build step on Render; API remains the portfolio focus |
+| **Migrations** | Run on Render build | Run on startup | Fails fast before traffic hits a broken schema |
 
 ## Deploy to Render
 
@@ -153,6 +186,7 @@ src/
 └── utils/           # ApiError, ApiResponse, asyncHandler
 public/              # Frontend UI
 postman/             # Postman collection + environments
+docs/                # Demo script, load test results
 tests/               # Jest + Supertest tests
 .github/workflows/   # CI pipeline
 ```

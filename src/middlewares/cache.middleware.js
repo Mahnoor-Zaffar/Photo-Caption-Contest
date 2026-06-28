@@ -3,6 +3,10 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const cacheResponse = (keyBuilder) =>
   asyncHandler(async (req, res, next) => {
+    if (req.user) {
+      return next();
+    }
+
     const key =
       typeof keyBuilder === "function" ? keyBuilder(req) : keyBuilder;
 

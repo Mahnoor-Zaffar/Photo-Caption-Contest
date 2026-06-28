@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/index.js";
+import sequelize from "../config/sequelize.js";
+import { getCacheStats } from "../config/cache.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -168,7 +170,26 @@ export const logout = asyncHandler(async (req, res) => {
 });
 
 export const healthCheck = asyncHandler(async (_req, res) => {
-  res.status(200).json(
-    new ApiResponse(200, { status: "ok", timestamp: new Date().toISOString() }, "Service is healthy"),
+  let dbStatus = "ok";
+
+  try {
+    await sequelize.authenticate();
+  } catch {
+    dbStatus = "error";
+  }
+
+  const cache = getCacheStats();
+
+  res.status(dbStatus === "ok" ? 200 : 503).json(
+    new ApiResponse(
+      dbStatus === "ok" ? 200 : 503,
+      {
+        status: dbStatus === "ok" ? "ok" : "degraded",
+        timestamp: new Date().toISOString(),
+        database: dbStatus,
+        cache,
+      },
+      dbStatus === "ok" ? "Service is healthy" : "Service degraded",
+    ),
   );
 });

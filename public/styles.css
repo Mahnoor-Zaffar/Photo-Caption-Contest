@@ -375,3 +375,12 @@ textarea { resize: vertical; min-height: 88px; }
   margin-bottom: 8px;
   letter-spacing: -0.12px;
 }
+
+.vote-badge {
+  color: #22c55e;
+  margin-left: 8px;
+}
+
+.caption-voted {
+  border-color: #22c55e;
+}

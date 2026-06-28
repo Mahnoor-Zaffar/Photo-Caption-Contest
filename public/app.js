@@ -2,6 +2,8 @@ const API = window.location.origin + "/api";
 let token = localStorage.getItem("token") || "";
 let currentImageId = null;
 let captionSort = "votes";
+let currentUsername = "";
+let myVoteCaptionId = null;
 
 const headers = () => ({
   "Content-Type": "application/json",
@@ -82,6 +84,7 @@ async function loadMe() {
   try {
     const { data } = await api("/auth/me");
     document.getElementById("usernameDisplay").textContent = data.username;
+    currentUsername = data.username;
     showAuth("loggedIn");
     setStatus("Signed in as " + data.username);
   } catch {
@@ -146,6 +149,7 @@ async function openImage(id) {
     document.getElementById("detailImg").src = data.url;
     document.getElementById("detailTitle").textContent = data.title;
     document.getElementById("detailDesc").textContent = data.description || "";
+    myVoteCaptionId = data.myVoteCaptionId || null;
     renderCaptions(data.captions);
   } catch (e) {
     showToast(e.message);
@@ -163,14 +167,21 @@ function renderCaptions(captions) {
 
   list.innerHTML = captions
     .map(
-      (c, i) => `
-    <div class="caption-card">
+      (c, i) => {
+        const isMine = c.author === currentUsername;
+        const isMyVote = myVoteCaptionId === c.id;
+        const voteLabel = myVoteCaptionId && !isMyVote ? "Move vote here" : "Vote";
+
+        return `
+    <div class="caption-card${isMyVote ? " caption-voted" : ""}">
       ${captionSort === "votes" && i === 0 ? '<span class="leader-badge">Top caption</span>' : ""}
+      ${isMyVote ? '<span class="leader-badge vote-badge">Your vote</span>' : ""}
       <div class="caption-text">${escapeHtml(c.text)}</div>
       <div class="caption-meta">by ${escapeHtml(c.author)} · ${c.voteCount} votes</div>
-      ${token ? `<button class="btn btn-secondary voteBtn" data-id="${c.id}" style="margin-top:12px;width:auto" aria-label="Vote for caption by ${escapeHtml(c.author)}">Vote</button>` : ""}
+      ${token && !isMine ? `<button class="btn btn-secondary voteBtn" data-id="${c.id}" style="margin-top:12px;width:auto" aria-label="${voteLabel} for caption by ${escapeHtml(c.author)}">${voteLabel}</button>` : ""}
     </div>
-  `,
+  `;
+      },
     )
     .join("");
 
@@ -178,8 +189,8 @@ function renderCaptions(captions) {
     btn.onclick = async () => {
       btn.disabled = true;
       try {
-        await api(`/captions/${btn.dataset.id}/votes`, { method: "POST" });
-        showToast("Vote recorded!", "success");
+        const result = await api(`/captions/${btn.dataset.id}/votes`, { method: "POST" });
+        showToast(result.data?.moved ? "Vote moved!" : "Vote recorded!", "success");
         openImage(currentImageId);
       } catch (e) {
         showToast(e.message);

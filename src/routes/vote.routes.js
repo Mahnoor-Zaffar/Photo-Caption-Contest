@@ -29,7 +29,11 @@ const router = Router();
  *       404:
  *         description: Caption not found
  *       409:
- *         description: Already voted
+ *         description: Already voted for this caption
+ *       403:
+ *         description: Cannot vote for your own caption
+ *       200:
+ *         description: Vote moved from another caption on the same image
  */
 router.post(
   "/captions/:id/votes",

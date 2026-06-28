@@ -44,7 +44,13 @@ describe("Integration (requires PostgreSQL)", () => {
     if (!dbAvailable) return;
 
     await User.destroy({
-      where: { email: [userA.email, userB.email] },
+      where: {
+        email: [
+          userA.email,
+          userB.email,
+          `test_c_${runId}@example.com`,
+        ],
+      },
     });
   });
 
@@ -118,5 +124,37 @@ describe("Integration (requires PostgreSQL)", () => {
       .set("Authorization", `Bearer ${tokenB}`);
 
     expect(res.status).toBe(409);
+  });
+
+  itIfDb("moves vote when voting for a different caption on the same image", async () => {
+    const userC = {
+      username: `testuser_c_${runId}`,
+      email: `test_c_${runId}@example.com`,
+      password,
+    };
+
+    const reg = await request(app).post("/api/auth/register").send(userC);
+    const tokenC = reg.body.data.token;
+
+    const captionRes = await request(app)
+      .post(`/api/images/${imageId}/captions`)
+      .set("Authorization", `Bearer ${tokenC}`)
+      .send({ text: `Second caption ${runId}` });
+
+    expect(captionRes.status).toBe(201);
+    const secondCaptionId = captionRes.body.data.id;
+
+    const voteRes = await request(app)
+      .post(`/api/captions/${secondCaptionId}/votes`)
+      .set("Authorization", `Bearer ${tokenB}`);
+
+    expect(voteRes.status).toBe(200);
+    expect(voteRes.body.data.moved).toBe(true);
+
+    const imageRes = await request(app)
+      .get(`/api/images/${imageId}?sort=votes&limit=50`)
+      .set("Authorization", `Bearer ${tokenB}`);
+
+    expect(imageRes.body.data.myVoteCaptionId).toBe(secondCaptionId);
   });
 });

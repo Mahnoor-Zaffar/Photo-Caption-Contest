@@ -28,3 +28,28 @@ export const verifyJWT = asyncHandler(async (req, _res, next) => {
     throw new ApiError(401, "Invalid access token");
   }
 });
+
+/** Sets req.user when a valid token is present; continues anonymously otherwise. */
+export const optionalVerifyJWT = asyncHandler(async (req, _res, next) => {
+  const token =
+    req.cookies?.accessToken ||
+    req.header("Authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id, {
+      attributes: { exclude: ["password"] },
+    });
+    if (user) {
+      req.user = user;
+    }
+  } catch {
+    // Ignore invalid tokens for optional auth
+  }
+
+  next();
+});

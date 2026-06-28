@@ -25,6 +25,14 @@ const Vote = sequelize.define(
         key: "id",
       },
     },
+    imageId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "images",
+        key: "id",
+      },
+    },
   },
   {
     tableName: "votes",
@@ -32,6 +40,10 @@ const Vote = sequelize.define(
       {
         unique: true,
         fields: ["userId", "captionId"],
+      },
+      {
+        unique: true,
+        fields: ["userId", "imageId"],
       },
     ],
   },
