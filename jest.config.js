@@ -4,4 +4,5 @@ export default {
   transform: {},
   testMatch: ["**/tests/**/*.test.js"],
   setupFiles: ["./tests/setup.js"],
+  globalTeardown: "./tests/globalTeardown.js",
 };

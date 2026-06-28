@@ -2,6 +2,7 @@ import { Router } from "express";
 import { voteForCaption, removeVote } from "../controllers/vote.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { validateUuidParam } from "../middlewares/uuid.middleware.js";
+import { voteRateLimiter } from "../middlewares/rateLimit.middleware.js";
 
 const router = Router();
 
@@ -32,6 +33,7 @@ const router = Router();
  */
 router.post(
   "/captions/:id/votes",
+  voteRateLimiter,
   verifyJWT,
   validateUuidParam("id"),
   voteForCaption,
@@ -62,6 +64,7 @@ router.post(
  */
 router.delete(
   "/captions/:id/votes",
+  voteRateLimiter,
   verifyJWT,
   validateUuidParam("id"),
   removeVote,

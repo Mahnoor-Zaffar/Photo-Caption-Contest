@@ -11,11 +11,27 @@ export const validateEnv = () => {
     throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
   }
 
-  if (
-    process.env.NODE_ENV === "production" &&
-    ["change-me", "dev-secret-change-in-production"].includes(process.env.JWT_SECRET)
-  ) {
-    throw new Error("JWT_SECRET must be changed in production");
+  const insecureSecrets = [
+    "change-me",
+    "change-me-refresh",
+    "dev-secret-change-in-production",
+    "docker-dev-secret-change-me",
+    "docker-refresh-secret-change-me",
+  ];
+
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.JWT_REFRESH_SECRET) {
+      throw new Error("JWT_REFRESH_SECRET is required in production");
+    }
+    if (insecureSecrets.includes(process.env.JWT_SECRET)) {
+      throw new Error("JWT_SECRET must be changed in production");
+    }
+    if (
+      insecureSecrets.includes(process.env.JWT_REFRESH_SECRET) ||
+      process.env.JWT_REFRESH_SECRET === process.env.JWT_SECRET
+    ) {
+      throw new Error("JWT_REFRESH_SECRET must be a unique value in production");
+    }
   }
 };
 

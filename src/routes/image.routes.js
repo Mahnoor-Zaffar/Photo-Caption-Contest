@@ -44,6 +44,12 @@ router.get("/images", cacheResponse("images:all"), getAllImages);
  *         schema:
  *           type: integer
  *           default: 10
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [recent, votes]
+ *           default: recent
  *     responses:
  *       200:
  *         description: Image with captions fetched successfully

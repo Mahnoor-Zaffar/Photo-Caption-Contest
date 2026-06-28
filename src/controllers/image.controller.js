@@ -26,6 +26,7 @@ export const getImageById = asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page || "1", 10));
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || "10", 10)));
   const offset = (page - 1) * limit;
+  const sort = req.query.sort === "votes" ? "votes" : "recent";
 
   const image = await Image.findByPk(id, {
     attributes: ["id", "title", "url", "description", "createdAt"],
@@ -54,7 +55,18 @@ export const getImageById = asyncHandler(async (req, res) => {
         attributes: ["username"],
       },
     ],
-    order: [["createdAt", "DESC"]],
+    order:
+      sort === "votes"
+        ? [
+            [
+              sequelize.literal(
+                `(SELECT COUNT(*)::int FROM votes WHERE votes."captionId" = "Caption"."id")`,
+              ),
+              "DESC",
+            ],
+            ["createdAt", "DESC"],
+          ]
+        : [["createdAt", "DESC"]],
     limit,
     offset,
   });
@@ -66,6 +78,7 @@ export const getImageById = asyncHandler(async (req, res) => {
     description: image.description,
     createdAt: image.createdAt,
     captions: rows.map(formatCaption),
+    sort,
     pagination: {
       page,
       limit,
@@ -80,5 +93,6 @@ export const getImageById = asyncHandler(async (req, res) => {
 export const buildImageCacheKey = (req) => {
   const page = req.query.page || "1";
   const limit = req.query.limit || "10";
-  return `images:${req.params.id}:p${page}:l${limit}`;
+  const sort = req.query.sort === "votes" ? "votes" : "recent";
+  return `images:${req.params.id}:p${page}:l${limit}:s${sort}`;
 };
