@@ -30,6 +30,10 @@ app.use(cookieParser());
 
 app.use(express.static(path.join(__dirname, "../public")));
 
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(__dirname, "../public/index.html"));
+});
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api", routes);

@@ -26,10 +26,17 @@ const startServer = async () => {
 
     await runSeedersIfNeeded();
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
       logger.info(`Swagger docs at http://localhost:${PORT}/api-docs`);
       logger.info(`Frontend at http://localhost:${PORT}/`);
+    });
+
+    server.on("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        logger.error(`Port ${PORT} is already in use. Stop the other process and restart.`);
+      }
+      throw error;
     });
   } catch (error) {
     logger.error({ err: error }, "Failed to start server");
