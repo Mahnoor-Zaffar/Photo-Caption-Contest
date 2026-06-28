@@ -9,7 +9,12 @@ dotenv.config();
 const PORT = process.env.PORT || 8000;
 
 const runMigrations = () => {
-  execSync("npx sequelize-cli db:migrate", { stdio: "inherit" });
+  try {
+    execSync("npx sequelize-cli db:migrate", { stdio: "inherit" });
+  } catch (error) {
+    console.error("Migration failed:", error.message);
+    throw error;
+  }
 };
 
 const runSeedersIfNeeded = async () => {
