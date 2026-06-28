@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import { register, login, logout, getMe, healthCheck } from "../controllers/auth.controller.js";
+import { register, login, logout, getMe, healthCheck, refreshAccessToken } from "../controllers/auth.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
+import { authRateLimiter } from "../middlewares/rateLimit.middleware.js";
 
 const router = Router();
 
@@ -53,6 +54,7 @@ router.get("/health", healthCheck);
  */
 router.post(
   "/auth/register",
+  authRateLimiter,
   [
     body("username")
       .trim()
@@ -96,6 +98,7 @@ router.post(
  */
 router.post(
   "/auth/login",
+  authRateLimiter,
   [
     body("email").isEmail().withMessage("Valid email is required"),
     body("password").notEmpty().withMessage("Password is required"),
@@ -131,5 +134,19 @@ router.get("/auth/me", verifyJWT, getMe);
  *         description: Logout successful
  */
 router.post("/auth/logout", logout);
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: New access token issued
+ *       401:
+ *         description: Invalid refresh token
+ */
+router.post("/auth/refresh", authRateLimiter, refreshAccessToken);
 
 export default router;

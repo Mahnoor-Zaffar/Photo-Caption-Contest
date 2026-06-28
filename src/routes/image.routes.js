@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { getAllImages, getImageById } from "../controllers/image.controller.js";
+import { getAllImages, getImageById, buildImageCacheKey } from "../controllers/image.controller.js";
 import { submitCaption } from "../controllers/caption.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { cacheResponse } from "../middlewares/cache.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
+import { validateUuidParam } from "../middlewares/uuid.middleware.js";
 import { body } from "express-validator";
 
 const router = Router();
@@ -24,7 +25,7 @@ router.get("/images", cacheResponse("images:all"), getAllImages);
  * @swagger
  * /api/images/{id}:
  *   get:
- *     summary: Get a single image with nested captions
+ *     summary: Get a single image with paginated captions
  *     tags: [Images]
  *     parameters:
  *       - in: path
@@ -33,15 +34,28 @@ router.get("/images", cacheResponse("images:all"), getAllImages);
  *         schema:
  *           type: string
  *           format: uuid
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
  *     responses:
  *       200:
  *         description: Image with captions fetched successfully
  *       404:
  *         description: Image not found
+ *       422:
+ *         description: Invalid UUID
  */
 router.get(
   "/images/:id",
-  cacheResponse((req) => `images:${req.params.id}`),
+  validateUuidParam("id"),
+  cacheResponse(buildImageCacheKey),
   getImageById,
 );
 
@@ -71,7 +85,6 @@ router.get(
  *               text:
  *                 type: string
  *                 maxLength: 280
- *                 example: When the sun clocks out early...
  *     responses:
  *       201:
  *         description: Caption submitted successfully
@@ -87,6 +100,7 @@ router.get(
 router.post(
   "/images/:id/captions",
   verifyJWT,
+  validateUuidParam("id"),
   [
     body("text")
       .trim()

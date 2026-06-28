@@ -17,7 +17,9 @@ export const deleteCache = (key) => cache.del(key);
 export const invalidateImageCaches = (imageId) => {
   deleteCache("images:all");
   if (imageId) {
-    deleteCache(`images:${imageId}`);
+    cache.keys()
+      .filter((key) => key.startsWith(`images:${imageId}`))
+      .forEach((key) => deleteCache(key));
   }
 };
 

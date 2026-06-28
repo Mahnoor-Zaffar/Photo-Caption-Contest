@@ -2,20 +2,14 @@ import dotenv from "dotenv";
 import { execSync } from "child_process";
 import app from "./app.js";
 import sequelize from "./config/sequelize.js";
+import { validateEnv } from "./config/env.js";
+import logger from "./config/logger.js";
 import { Image } from "./models/index.js";
 
 dotenv.config();
+validateEnv();
 
 const PORT = process.env.PORT || 8000;
-
-const runMigrations = () => {
-  try {
-    execSync("npx sequelize-cli db:migrate", { stdio: "inherit" });
-  } catch (error) {
-    console.error("Migration failed:", error.message);
-    throw error;
-  }
-};
 
 const runSeedersIfNeeded = async () => {
   const imageCount = await Image.count();
@@ -28,17 +22,17 @@ const runSeedersIfNeeded = async () => {
 const startServer = async () => {
   try {
     await sequelize.authenticate();
-    console.log("PostgreSQL connected");
+    logger.info("PostgreSQL connected");
 
-    runMigrations();
     await runSeedersIfNeeded();
 
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+      logger.info(`Server running on port ${PORT}`);
+      logger.info(`Swagger docs at http://localhost:${PORT}/api-docs`);
+      logger.info(`Frontend at http://localhost:${PORT}/`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
+    logger.error({ err: error }, "Failed to start server");
     process.exit(1);
   }
 };

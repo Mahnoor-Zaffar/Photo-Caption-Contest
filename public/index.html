@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo Caption Contest</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    header { padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 1.4rem; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+    .card { background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; cursor: pointer; transition: transform 0.15s; }
+    .card:hover { transform: translateY(-2px); }
+    .card img { width: 100%; height: 180px; object-fit: cover; }
+    .card-body { padding: 1rem; }
+    .auth-panel { background: #1e293b; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid #334155; }
+    input, textarea, button { width: 100%; padding: 0.6rem 0.8rem; margin: 0.4rem 0; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; }
+    button { background: #3b82f6; border: none; cursor: pointer; font-weight: 600; }
+    button:hover { background: #2563eb; }
+    button.secondary { background: #475569; }
+    .detail { display: none; }
+    .detail.active { display: block; }
+    .caption { background: #0f172a; padding: 0.8rem; border-radius: 8px; margin: 0.5rem 0; border: 1px solid #334155; }
+    .caption-meta { font-size: 0.85rem; color: #94a3b8; margin-top: 0.3rem; }
+    .status { padding: 0.5rem 0; color: #94a3b8; font-size: 0.9rem; }
+    .hidden { display: none; }
+    .row { display: flex; gap: 0.5rem; }
+    .row button { flex: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Photo Caption Contest</h1>
+    <span id="userLabel" class="status">Not signed in</span>
+  </header>
+  <main>
+    <section id="authSection" class="auth-panel">
+      <h2 id="authTitle">Sign in</h2>
+      <div id="loginForm">
+        <input id="loginEmail" type="email" placeholder="Email" />
+        <input id="loginPassword" type="password" placeholder="Password" />
+        <button id="loginBtn">Login</button>
+        <p class="status">No account? <a href="#" id="showRegister" style="color:#60a5fa">Register</a></p>
+      </div>
+      <div id="registerForm" class="hidden">
+        <input id="regUsername" placeholder="Username" />
+        <input id="regEmail" type="email" placeholder="Email" />
+        <input id="regPassword" type="password" placeholder="Password (min 8 chars)" />
+        <button id="registerBtn">Register</button>
+        <p class="status">Have an account? <a href="#" id="showLogin" style="color:#60a5fa">Login</a></p>
+      </div>
+      <div id="loggedInPanel" class="hidden">
+        <p class="status">Signed in as <strong id="usernameDisplay"></strong></p>
+        <div class="row">
+          <button id="logoutBtn" class="secondary">Logout</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="gallery">
+      <h2 style="margin-bottom:1rem">Contest Images</h2>
+      <div id="imageGrid" class="grid"></div>
+    </section>
+
+    <section id="detail" class="detail">
+      <button id="backBtn" class="secondary" style="width:auto;margin-bottom:1rem">← Back</button>
+      <img id="detailImg" style="width:100%;max-height:400px;object-fit:cover;border-radius:12px" />
+      <h2 id="detailTitle" style="margin:1rem 0 0.5rem"></h2>
+      <p id="detailDesc" class="status"></p>
+      <div id="captionForm" class="auth-panel hidden" style="margin-top:1.5rem">
+        <h3>Submit your caption</h3>
+        <textarea id="captionText" rows="3" maxlength="280" placeholder="Write something witty..."></textarea>
+        <button id="submitCaptionBtn">Submit Caption</button>
+      </div>
+      <h3 style="margin:1.5rem 0 0.5rem">Captions</h3>
+      <div id="captionList"></div>
+    </section>
+  </main>
+  <script>
+    const API = window.location.origin + '/api';
+    let token = localStorage.getItem('token') || '';
+    let currentImageId = null;
+
+    const headers = () => ({
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    });
+
+    const setStatus = (msg) => { document.getElementById('userLabel').textContent = msg; };
+
+    async function api(path, opts = {}) {
+      const res = await fetch(API + path, { ...opts, headers: { ...headers(), ...opts.headers } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Request failed');
+      return data;
+    }
+
+    function showAuth(state) {
+      document.getElementById('loginForm').classList.toggle('hidden', state !== 'login');
+      document.getElementById('registerForm').classList.toggle('hidden', state !== 'register');
+      document.getElementById('loggedInPanel').classList.toggle('hidden', state !== 'loggedIn');
+      document.getElementById('captionForm').classList.toggle('hidden', state !== 'loggedIn');
+    }
+
+    async function loadMe() {
+      if (!token) { showAuth('login'); setStatus('Not signed in'); return; }
+      try {
+        const { data } = await api('/auth/me');
+        document.getElementById('usernameDisplay').textContent = data.username;
+        showAuth('loggedIn');
+        setStatus('Signed in as ' + data.username);
+      } catch {
+        token = '';
+        localStorage.removeItem('token');
+        showAuth('login');
+        setStatus('Not signed in');
+      }
+    }
+
+    async function loadImages() {
+      const { data } = await api('/images');
+      const grid = document.getElementById('imageGrid');
+      grid.innerHTML = data.map(img => `
+        <div class="card" data-id="${img.id}">
+          <img src="${img.url}" alt="${img.title}" />
+          <div class="card-body"><strong>${img.title}</strong></div>
+        </div>
+      `).join('');
+      grid.querySelectorAll('.card').forEach(card => {
+        card.onclick = () => openImage(card.dataset.id);
+      });
+    }
+
+    async function openImage(id) {
+      currentImageId = id;
+      const { data } = await api(`/images/${id}?page=1&limit=20`);
+      document.getElementById('gallery').style.display = 'none';
+      document.getElementById('detail').classList.add('active');
+      document.getElementById('detailImg').src = data.url;
+      document.getElementById('detailTitle').textContent = data.title;
+      document.getElementById('detailDesc').textContent = data.description || '';
+      renderCaptions(data.captions);
+    }
+
+    function renderCaptions(captions) {
+      const list = document.getElementById('captionList');
+      if (!captions.length) { list.innerHTML = '<p class="status">No captions yet. Be the first!</p>'; return; }
+      list.innerHTML = captions.map(c => `
+        <div class="caption">
+          <div>${c.text}</div>
+          <div class="caption-meta">by ${c.author} · ${c.voteCount} votes</div>
+          ${token ? `<button class="voteBtn secondary" data-id="${c.id}" style="margin-top:0.5rem;width:auto">Vote</button>` : ''}
+        </div>
+      `).join('');
+      list.querySelectorAll('.voteBtn').forEach(btn => {
+        btn.onclick = async () => {
+          try {
+            await api(`/captions/${btn.dataset.id}/votes`, { method: 'POST' });
+            openImage(currentImageId);
+          } catch (e) { alert(e.message); }
+        };
+      });
+    }
+
+    document.getElementById('backBtn').onclick = () => {
+      document.getElementById('detail').classList.remove('active');
+      document.getElementById('gallery').style.display = 'block';
+    };
+
+    document.getElementById('showRegister').onclick = (e) => { e.preventDefault(); showAuth('register'); document.getElementById('authTitle').textContent = 'Register'; };
+    document.getElementById('showLogin').onclick = (e) => { e.preventDefault(); showAuth('login'); document.getElementById('authTitle').textContent = 'Sign in'; };
+
+    document.getElementById('loginBtn').onclick = async () => {
+      try {
+        const { data } = await api('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: loginEmail.value, password: loginPassword.value }),
+        });
+        token = data.token;
+        localStorage.setItem('token', token);
+        await loadMe();
+      } catch (e) { alert(e.message); }
+    };
+
+    document.getElementById('registerBtn').onclick = async () => {
+      try {
+        const { data } = await api('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ username: regUsername.value, email: regEmail.value, password: regPassword.value }),
+        });
+        token = data.token;
+        localStorage.setItem('token', token);
+        await loadMe();
+      } catch (e) { alert(e.message); }
+    };
+
+    document.getElementById('logoutBtn').onclick = async () => {
+      await api('/auth/logout', { method: 'POST' }).catch(() => {});
+      token = '';
+      localStorage.removeItem('token');
+      showAuth('login');
+      setStatus('Not signed in');
+    };
+
+    document.getElementById('submitCaptionBtn').onclick = async () => {
+      try {
+        await api(`/images/${currentImageId}/captions`, {
+          method: 'POST',
+          body: JSON.stringify({ text: captionText.value }),
+        });
+        captionText.value = '';
+        openImage(currentImageId);
+      } catch (e) { alert(e.message); }
+    };
+
+    loadMe();
+    loadImages();
+  </script>
+</body>
+</html>

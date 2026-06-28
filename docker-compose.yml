@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: photo_user
+      POSTGRES_PASSWORD: photo_pass
+      POSTGRES_DB: photo_caption_contest
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      DATABASE_URL: postgres://photo_user:photo_pass@db:5432/photo_caption_contest
+      JWT_SECRET: docker-dev-secret-change-me
+      JWT_REFRESH_SECRET: docker-refresh-secret-change-me
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CACHE_TTL_SECONDS: 60
+      CORS_ORIGIN: "*"
+    depends_on:
+      - db
+    command: sh -c "npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all && node src/index.js"
+
+volumes:
+  pgdata:
