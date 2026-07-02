@@ -4,6 +4,7 @@ let currentImageId = null;
 let captionSort = "votes";
 let currentUsername = "";
 let myVoteCaptionId = null;
+let pendingAuthAction = null;
 
 const headers = () => ({
   "Content-Type": "application/json",
@@ -29,17 +30,39 @@ function setLoading(id, isLoading) {
   el.setAttribute("aria-busy", isLoading ? "true" : "false");
 }
 
+function renderSkeletonGallery(count = 6) {
+  const grid = document.getElementById("imageGrid");
+  grid.innerHTML = Array.from({ length: count }, () => `
+    <article class="template-card skeleton-card" aria-hidden="true">
+      <div class="skeleton-img"></div>
+      <div class="skeleton-body">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line short"></div>
+      </div>
+    </article>
+  `).join("");
+}
+
 async function refreshToken() {
   const res = await fetch(`${API}/auth/refresh`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
-  const data = await res.json();
+  const data = await parseJsonResponse(res);
   if (!res.ok) throw new Error(data.message || "Refresh failed");
   token = data.data.token;
   localStorage.setItem("token", token);
   return token;
+}
+
+async function parseJsonResponse(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Server unavailable — try again in a moment");
+  }
 }
 
 async function api(path, opts = {}, retried = false) {
@@ -48,7 +71,7 @@ async function api(path, opts = {}, retried = false) {
     ...opts,
     headers: { ...headers(), ...opts.headers },
   });
-  const data = await res.json();
+  const data = await parseJsonResponse(res);
 
   if (res.status === 401 && token && !retried && !path.includes("/auth/")) {
     try {
@@ -57,8 +80,8 @@ async function api(path, opts = {}, retried = false) {
     } catch {
       token = "";
       localStorage.removeItem("token");
-      showAuth("login");
-      setStatus("Session expired");
+      updateNavAuth();
+      setStatus("Browse contests — no sign-in needed");
       showToast("Session expired — please sign in again", "error");
       throw new Error("Session expired");
     }
@@ -71,35 +94,74 @@ async function api(path, opts = {}, retried = false) {
 function showAuth(state) {
   document.getElementById("loginForm").classList.toggle("hidden", state !== "login");
   document.getElementById("registerForm").classList.toggle("hidden", state !== "register");
-  document.getElementById("loggedInPanel").classList.toggle("hidden", state !== "loggedIn");
-  document.getElementById("captionForm").classList.toggle("hidden", state !== "loggedIn");
+  document.getElementById("authTitle").textContent = state === "register" ? "Create account" : "Sign in";
+}
+
+function openAuthModal(state = "login", afterAuth = null) {
+  pendingAuthAction = afterAuth;
+  showAuth(state);
+  document.getElementById("authModal").classList.remove("hidden");
+  document.getElementById("loginEmail")?.focus();
+}
+
+function closeAuthModal() {
+  document.getElementById("authModal").classList.add("hidden");
+  pendingAuthAction = null;
+}
+
+function updateNavAuth() {
+  const signedIn = Boolean(token && currentUsername);
+  document.getElementById("navSignIn").classList.toggle("hidden", signedIn);
+  document.getElementById("navSignOut").classList.toggle("hidden", !signedIn);
 }
 
 async function loadMe() {
   if (!token) {
-    showAuth("login");
-    setStatus("Not signed in");
+    currentUsername = "";
+    updateNavAuth();
+    setStatus("Browse contests — no sign-in needed");
     return;
   }
   try {
     const { data } = await api("/auth/me");
-    document.getElementById("usernameDisplay").textContent = data.username;
     currentUsername = data.username;
-    showAuth("loggedIn");
+    updateNavAuth();
     setStatus("Signed in as " + data.username);
   } catch {
     token = "";
+    currentUsername = "";
     localStorage.removeItem("token");
-    showAuth("login");
-    setStatus("Not signed in");
+    updateNavAuth();
+    setStatus("Browse contests — no sign-in needed");
   }
 }
 
+async function completeAuth(data) {
+  token = data.token;
+  localStorage.setItem("token", token);
+  await loadMe();
+  closeAuthModal();
+  const action = pendingAuthAction;
+  pendingAuthAction = null;
+  if (action) {
+    await action();
+  } else if (currentImageId) {
+    await openImage(currentImageId);
+  }
+}
+
+function requireAuth(action, modalState = "login") {
+  if (token) return action();
+  openAuthModal(modalState, action);
+}
+
 async function loadImages() {
-  setLoading("imageGrid", true);
+  const grid = document.getElementById("imageGrid");
+  grid.setAttribute("aria-busy", "true");
+  renderSkeletonGallery();
+
   try {
     const { data } = await api("/images");
-    const grid = document.getElementById("imageGrid");
     if (!data.length) {
       grid.innerHTML = '<p class="detail-desc">No contest images yet.</p>';
       return;
@@ -130,12 +192,22 @@ async function loadImages() {
     });
   } catch (e) {
     showToast(e.message);
-    grid.innerHTML =
-      '<p class="detail-desc gallery-error">Couldn\'t load contests. <button type="button" class="btn btn-secondary" id="retryGallery">Retry</button></p>';
+    grid.innerHTML = `
+      <div class="gallery-error">
+        <p class="detail-desc">Couldn't load contests.</p>
+        <button type="button" class="btn btn-secondary" id="retryGallery">Retry</button>
+      </div>`;
     document.getElementById("retryGallery")?.addEventListener("click", loadImages);
   } finally {
-    setLoading("imageGrid", false);
+    grid.setAttribute("aria-busy", "false");
   }
+}
+
+function updateCaptionForm(isClosed) {
+  const showForm = !isClosed && token;
+  const showPrompt = !isClosed && !token;
+  document.getElementById("captionForm").classList.toggle("hidden", !showForm);
+  document.getElementById("captionSignInPrompt").classList.toggle("hidden", !showPrompt);
 }
 
 async function openImage(id) {
@@ -149,7 +221,6 @@ async function openImage(id) {
     );
 
     document.getElementById("heroSection").style.display = "none";
-    document.getElementById("authSection").style.display = "none";
     document.getElementById("gallery").style.display = "none";
     document.getElementById("detail").classList.add("active");
 
@@ -163,7 +234,7 @@ async function openImage(id) {
     statusEl.textContent = isClosed ? "This contest is closed." : "Contest open — submit and vote!";
     statusEl.className = `contest-status ${isClosed ? "closed" : "open"}`;
 
-    document.getElementById("captionForm").classList.toggle("hidden", isClosed || !token);
+    updateCaptionForm(isClosed);
 
     if (isClosed) {
       await loadWinner(id);
@@ -193,6 +264,7 @@ function renderCaptions(captions, isClosed = false) {
         const isMyVote = myVoteCaptionId === c.id;
         const voteLabel = myVoteCaptionId && !isMyVote ? "Move vote here" : "Vote";
         const canVote = token && !isMine && !isClosed;
+        const showSignInVote = !token && !isClosed;
 
         return `
     <div class="caption-card${isMyVote ? " caption-voted" : ""}">
@@ -201,6 +273,7 @@ function renderCaptions(captions, isClosed = false) {
       <div class="caption-text">${escapeHtml(c.text)}</div>
       <div class="caption-meta">by ${escapeHtml(c.author)} · ${c.voteCount} votes</div>
       ${canVote ? `<button class="btn btn-secondary voteBtn" data-id="${c.id}" style="margin-top:12px;width:auto" aria-label="${voteLabel} for caption by ${escapeHtml(c.author)}">${voteLabel}</button>` : ""}
+      ${showSignInVote ? `<button class="btn btn-secondary signInVoteBtn" data-id="${c.id}" style="margin-top:12px;width:auto">Sign in to vote</button>` : ""}
     </div>
   `;
       },
@@ -218,6 +291,16 @@ function renderCaptions(captions, isClosed = false) {
         showToast(e.message);
         btn.disabled = false;
       }
+    };
+  });
+
+  list.querySelectorAll(".signInVoteBtn").forEach((btn) => {
+    btn.onclick = () => {
+      requireAuth(async () => {
+        await openImage(currentImageId);
+        const voteBtn = document.querySelector(`.voteBtn[data-id="${btn.dataset.id}"]`);
+        voteBtn?.click();
+      });
     };
   });
 }
@@ -258,7 +341,6 @@ function setSort(sort) {
 document.getElementById("backBtn").onclick = () => {
   document.getElementById("detail").classList.remove("active");
   document.getElementById("heroSection").style.display = "block";
-  document.getElementById("authSection").style.display = "block";
   document.getElementById("gallery").style.display = "block";
   currentImageId = null;
   history.replaceState({}, "", window.location.pathname);
@@ -286,16 +368,23 @@ function updateCharCount() {
 
 document.getElementById("captionText").addEventListener("input", updateCharCount);
 
+document.getElementById("navSignIn").onclick = () => openAuthModal("login");
+document.getElementById("authModalClose").onclick = closeAuthModal;
+document.getElementById("authModalBackdrop").onclick = closeAuthModal;
+document.getElementById("captionSignInBtn").onclick = () => {
+  openAuthModal("login", async () => {
+    if (currentImageId) await openImage(currentImageId);
+  });
+};
+
 document.getElementById("showRegister").onclick = (e) => {
   e.preventDefault();
   showAuth("register");
-  document.getElementById("authTitle").textContent = "Create account";
 };
 
 document.getElementById("showLogin").onclick = (e) => {
   e.preventDefault();
   showAuth("login");
-  document.getElementById("authTitle").textContent = "Sign in";
 };
 
 document.getElementById("sortRecent").onclick = () => setSort("recent");
@@ -312,9 +401,7 @@ document.getElementById("loginBtn").onclick = async () => {
         password: loginPassword.value,
       }),
     });
-    token = data.token;
-    localStorage.setItem("token", token);
-    await loadMe();
+    await completeAuth(data);
     showToast("Welcome back!", "success");
   } catch (e) {
     showToast(e.message);
@@ -335,9 +422,7 @@ document.getElementById("registerBtn").onclick = async () => {
         password: regPassword.value,
       }),
     });
-    token = data.token;
-    localStorage.setItem("token", token);
-    await loadMe();
+    await completeAuth(data);
     showToast("Account created!", "success");
   } catch (e) {
     showToast(e.message);
@@ -346,33 +431,37 @@ document.getElementById("registerBtn").onclick = async () => {
   }
 };
 
-document.getElementById("logoutBtn").onclick = async () => {
+document.getElementById("navSignOut").onclick = async () => {
   await api("/auth/logout", { method: "POST" }).catch(() => {});
   token = "";
   currentUsername = "";
   myVoteCaptionId = null;
   localStorage.removeItem("token");
-  showAuth("login");
-  setStatus("Not signed in");
+  updateNavAuth();
+  setStatus("Browse contests — no sign-in needed");
   showToast("Signed out", "success");
+  if (currentImageId) openImage(currentImageId);
 };
 
 document.getElementById("submitCaptionBtn").onclick = async () => {
-  const btn = document.getElementById("submitCaptionBtn");
-  btn.disabled = true;
-  try {
-    await api(`/images/${currentImageId}/captions`, {
-      method: "POST",
-      body: JSON.stringify({ text: captionText.value }),
-    });
-    captionText.value = "";
-    showToast("Caption submitted!", "success");
-    openImage(currentImageId);
-  } catch (e) {
-    showToast(e.message);
-  } finally {
-    btn.disabled = false;
-  }
+  requireAuth(async () => {
+    const btn = document.getElementById("submitCaptionBtn");
+    btn.disabled = true;
+    try {
+      await api(`/images/${currentImageId}/captions`, {
+        method: "POST",
+        body: JSON.stringify({ text: captionText.value }),
+      });
+      captionText.value = "";
+      updateCharCount();
+      showToast("Caption submitted!", "success");
+      openImage(currentImageId);
+    } catch (e) {
+      showToast(e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
 };
 
 async function waitForApi() {
@@ -381,10 +470,13 @@ async function waitForApi() {
 
   for (let attempt = 0; attempt < (isLocal ? 3 : 30); attempt += 1) {
     try {
-      const res = await fetch(`${API}/health`, { credentials: "include" });
+      const res = await fetch(`${API}/health/live`, { credentials: "include" });
       if (res.ok) {
-        overlay.classList.add("hidden");
-        return;
+        const data = await parseJsonResponse(res);
+        if (data?.data?.app === "photo-caption-contest") {
+          overlay.classList.add("hidden");
+          return;
+        }
       }
     } catch {
       // Server may be cold-starting on Render

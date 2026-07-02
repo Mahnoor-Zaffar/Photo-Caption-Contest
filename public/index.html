@@ -24,48 +24,22 @@
 
   <nav class="top-nav">
     <span class="logo">Caption Contest</span>
-    <span id="userLabel" class="nav-status">Not signed in</span>
+    <div class="nav-actions">
+      <span id="userLabel" class="nav-status">Browse contests — no sign-in needed</span>
+      <button id="navSignIn" class="btn btn-secondary btn-nav" type="button">Sign in</button>
+      <button id="navSignOut" class="btn btn-secondary btn-nav hidden" type="button">Sign out</button>
+    </div>
   </nav>
 
-  <section class="hero" id="heroSection">
-    <div class="hero-grid">
-      <div>
-        <h1 class="display-xl">Write the caption.<br />Win the laugh.</h1>
-        <p class="subhead">Browse contest photos, submit your wittiest lines, and vote for the crowd favorite — all in one place.</p>
-      </div>
-      <div class="spotlight-card">
-        <p>Every image is a blank canvas for your humor.</p>
-      </div>
-    </div>
+  <section class="hero hero-compact" id="heroSection">
+    <h1 class="display-xl">Write the caption.<br />Win the laugh.</h1>
+    <p class="subhead">Pick a photo, submit your wittiest line, and vote for the crowd favorite.</p>
   </section>
 
   <main>
-    <section id="authSection" class="auth-panel">
-      <h2 id="authTitle">Sign in</h2>
-      <div id="loginForm">
-        <div class="field"><input id="loginEmail" type="email" placeholder="Email" /></div>
-        <div class="field"><input id="loginPassword" type="password" placeholder="Password" /></div>
-        <button id="loginBtn" class="btn btn-primary" aria-label="Sign in to your account">Sign in</button>
-        <p class="caption">No account? <a href="#" id="showRegister">Create one</a></p>
-      </div>
-      <div id="registerForm" class="hidden">
-        <div class="field"><input id="regUsername" placeholder="Username" /></div>
-        <div class="field"><input id="regEmail" type="email" placeholder="Email" /></div>
-        <div class="field"><input id="regPassword" type="password" placeholder="Password (min 8 chars)" /></div>
-        <button id="registerBtn" class="btn btn-primary">Get started</button>
-        <p class="caption">Have an account? <a href="#" id="showLogin">Sign in</a></p>
-      </div>
-      <div id="loggedInPanel" class="hidden">
-        <p class="caption">Signed in as <strong id="usernameDisplay" style="color:var(--ink)"></strong></p>
-        <div class="row">
-          <button id="logoutBtn" class="btn btn-secondary">Sign out</button>
-        </div>
-      </div>
-    </section>
-
     <section id="gallery">
       <h2 class="section-title">Contest images</h2>
-      <div id="imageGrid" class="grid" aria-live="polite" aria-busy="false"></div>
+      <div id="imageGrid" class="grid" aria-live="polite" aria-busy="true"></div>
     </section>
 
     <section id="detail" class="detail">
@@ -90,6 +64,12 @@
         <button id="submitCaptionBtn" class="btn btn-primary">Submit caption</button>
       </div>
 
+      <div id="captionSignInPrompt" class="auth-panel hidden">
+        <h2 style="font-size:22px;font-weight:700;letter-spacing:-0.8px;margin-bottom:8px">Submit your caption</h2>
+        <p class="detail-desc" style="margin-bottom:16px">Sign in to enter this contest.</p>
+        <button id="captionSignInBtn" class="btn btn-primary" type="button">Sign in to submit</button>
+      </div>
+
       <h2 class="section-title" style="font-size:22px;margin-top:32px">Captions</h2>
       <div class="sort-tabs" role="group" aria-label="Sort captions">
         <button id="sortVotes" class="sort-tab active" aria-pressed="true">Top voted</button>
@@ -98,6 +78,27 @@
       <div id="captionList" aria-live="polite"></div>
     </section>
   </main>
+
+  <div id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="modal-backdrop" id="authModalBackdrop"></div>
+    <div class="modal-card auth-panel">
+      <button id="authModalClose" class="modal-close" type="button" aria-label="Close">×</button>
+      <h2 id="authTitle">Sign in</h2>
+      <div id="loginForm">
+        <div class="field"><input id="loginEmail" type="email" placeholder="Email" /></div>
+        <div class="field"><input id="loginPassword" type="password" placeholder="Password" /></div>
+        <button id="loginBtn" class="btn btn-primary" aria-label="Sign in to your account">Sign in</button>
+        <p class="caption">No account? <a href="#" id="showRegister">Create one</a></p>
+      </div>
+      <div id="registerForm" class="hidden">
+        <div class="field"><input id="regUsername" placeholder="Username" /></div>
+        <div class="field"><input id="regEmail" type="email" placeholder="Email" /></div>
+        <div class="field"><input id="regPassword" type="password" placeholder="Password (min 8 chars)" /></div>
+        <button id="registerBtn" class="btn btn-primary">Get started</button>
+        <p class="caption">Have an account? <a href="#" id="showLogin">Sign in</a></p>
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

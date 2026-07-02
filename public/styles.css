@@ -57,6 +57,31 @@ a:hover { text-decoration: underline; }
   letter-spacing: -0.13px;
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-nav {
+  width: auto;
+  min-height: 36px;
+  padding: 8px 14px;
+}
+
+.hero-compact {
+  padding: 40px 32px 24px;
+}
+
+.hero-compact .display-xl {
+  font-size: clamp(32px, 6vw, 56px);
+  margin-bottom: 12px;
+}
+
+.hero-compact .subhead {
+  font-size: 16px;
+}
+
 .hero {
   padding: 64px 32px 40px;
   max-width: 1199px;
@@ -484,4 +509,123 @@ textarea { resize: vertical; min-height: 88px; }
 
 .char-count-warn {
   color: #f59e0b;
+}
+
+.gallery-error {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 32px 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--rounded-lg);
+}
+
+.gallery-error .detail-desc {
+  margin-bottom: 16px;
+}
+
+.skeleton-card {
+  pointer-events: none;
+  cursor: default;
+}
+
+.skeleton-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.skeleton-img {
+  height: 200px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    #2a2a2a 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-body {
+  padding: 12px;
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    #2a2a2a 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-line.short {
+  width: 40%;
+  margin-bottom: 0;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(100%, 420px);
+  margin: 0;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 810px) {
+  .nav-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .nav-status {
+    font-size: 12px;
+    text-align: right;
+    max-width: 180px;
+  }
 }

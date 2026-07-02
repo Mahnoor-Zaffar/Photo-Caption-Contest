@@ -192,9 +192,21 @@ See [`docs/load-test-results.md`](docs/load-test-results.md) for sample output.
    - `DATABASE_URL` — provided by Render PostgreSQL
    - `NODE_ENV=production`
 
-Build command: `npm install && npm run db:migrate`  
+Build command: `npm ci && npm run db:migrate`  
 Start command: `npm start`  
-Health check path: `/api/health/ready`
+Health check path: `/api/health/ready`  
+Seeds run automatically on startup when the images table is empty.
+
+### Verify the correct app is deployed
+
+After deploy, confirm the live service is **this** project (not a default Express scaffold):
+
+```bash
+curl -s https://photo-caption-api.onrender.com/api/health/live | jq .data.app
+# Expected: "photo-caption-contest"
+```
+
+If you see HTML `<h1>Express</h1>` or `/api/images` returns 404 HTML, the Render service is pointing at the wrong repo, branch, or root directory. Reconnect the GitHub repo, ensure **Root Directory** is blank (repo root), and trigger **Manual Deploy → Clear build cache & deploy**.
 
 ## Engineering decision: one vote per image
 

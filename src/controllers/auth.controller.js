@@ -188,7 +188,11 @@ export const healthLive = asyncHandler(async (_req, res) => {
   res.status(200).json(
     new ApiResponse(
       200,
-      { status: "ok", timestamp: new Date().toISOString() },
+      {
+        status: "ok",
+        app: "photo-caption-contest",
+        timestamp: new Date().toISOString(),
+      },
       "Service is alive",
     ),
   );
@@ -211,6 +215,7 @@ export const healthReady = asyncHandler(async (_req, res) => {
       ok ? 200 : 503,
       {
         status: ok ? "ok" : "degraded",
+        app: "photo-caption-contest",
         timestamp: new Date().toISOString(),
         database: dbStatus,
         cache,
