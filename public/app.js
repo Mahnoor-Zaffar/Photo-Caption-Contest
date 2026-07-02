@@ -130,6 +130,9 @@ async function loadImages() {
     });
   } catch (e) {
     showToast(e.message);
+    grid.innerHTML =
+      '<p class="detail-desc gallery-error">Couldn\'t load contests. <button type="button" class="btn btn-secondary" id="retryGallery">Retry</button></p>';
+    document.getElementById("retryGallery")?.addEventListener("click", loadImages);
   } finally {
     setLoading("imageGrid", false);
   }
@@ -346,6 +349,8 @@ document.getElementById("registerBtn").onclick = async () => {
 document.getElementById("logoutBtn").onclick = async () => {
   await api("/auth/logout", { method: "POST" }).catch(() => {});
   token = "";
+  currentUsername = "";
+  myVoteCaptionId = null;
   localStorage.removeItem("token");
   showAuth("login");
   setStatus("Not signed in");

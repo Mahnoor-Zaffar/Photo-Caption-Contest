@@ -35,9 +35,12 @@ test("register, submit caption, vote, and see your vote", async ({ page }) => {
   await page.fill("#regEmail", `bob_${id}@example.com`);
   await page.fill("#regPassword", "password123");
   await page.click("#registerBtn");
+  await expect(page.locator("#loggedInPanel")).toBeVisible();
 
   await page.locator(".template-card .status-badge.open").first().click();
-  await page.locator(".caption-card", { hasText: caption }).locator(".voteBtn").click();
+  const voteBtn = page.locator(".caption-card", { hasText: caption }).locator(".voteBtn");
+  await expect(voteBtn).toBeVisible({ timeout: 15000 });
+  await voteBtn.click();
   await expect(
     page.locator(".caption-card", { hasText: caption }).locator(".vote-badge"),
   ).toContainText("Your vote");
