@@ -1,8 +1,10 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { User } from "../models/index.js";
 import sequelize from "../config/sequelize.js";
 import { getCacheStats } from "../config/cache.js";
 import { ApiError } from "../utils/ApiError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -22,7 +24,7 @@ export const generateAccessToken = (user) => {
 
 export const generateRefreshToken = (user) => {
   return jwt.sign(
-    { id: user.id },
+    { id: user.id, jti: crypto.randomUUID() },
     process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d" },
   );
@@ -53,12 +55,12 @@ export const register = asyncHandler(async (req, res) => {
 
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
-    throw new ApiError(409, "Email already registered");
+    throw new ApiError(409, "Email already registered", { code: ErrorCodes.EMAIL_TAKEN });
   }
 
   const existingUsername = await User.findOne({ where: { username } });
   if (existingUsername) {
-    throw new ApiError(409, "Username already taken");
+    throw new ApiError(409, "Username already taken", { code: ErrorCodes.USERNAME_TAKEN });
   }
 
   const user = await User.create({ username, email, password });
@@ -84,7 +86,7 @@ export const login = asyncHandler(async (req, res) => {
   const user = await User.findOne({ where: { email } });
 
   if (!user || !(await user.isPasswordCorrect(password))) {
-    throw new ApiError(401, "Invalid email or password");
+    throw new ApiError(401, "Invalid email or password", { code: ErrorCodes.INVALID_CREDENTIALS });
   }
 
   const accessToken = generateAccessToken(user);
@@ -110,38 +112,51 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
     req.header("X-Refresh-Token");
 
   if (!token) {
-    throw new ApiError(401, "Refresh token required");
+    throw new ApiError(401, "Refresh token required", { code: ErrorCodes.REFRESH_REQUIRED });
   }
 
+  let decoded;
+
   try {
-    const decoded = jwt.verify(
+    decoded = jwt.verify(
       token,
       process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
     );
-
-    const user = await User.findByPk(decoded.id);
-
-    if (!user || user.refreshToken !== token) {
-      throw new ApiError(401, "Invalid refresh token");
-    }
-
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    await user.update({ refreshToken });
-
-    setAuthCookies(res, accessToken, refreshToken);
-
-    res.status(200).json(
-      new ApiResponse(
-        200,
-        { token: accessToken, refreshToken },
-        "Token refreshed",
-      ),
-    );
   } catch {
-    throw new ApiError(401, "Invalid refresh token");
+    throw new ApiError(401, "Invalid refresh token", { code: ErrorCodes.INVALID_REFRESH_TOKEN });
   }
+
+  const user = await User.findByPk(decoded.id);
+
+  if (!user) {
+    throw new ApiError(401, "Invalid refresh token", { code: ErrorCodes.INVALID_REFRESH_TOKEN });
+  }
+
+  if (!user.refreshToken) {
+    throw new ApiError(401, "Session revoked", { code: ErrorCodes.SESSION_REVOKED });
+  }
+
+  if (user.refreshToken !== token) {
+    await user.update({ refreshToken: null });
+    throw new ApiError(401, "Refresh token reuse detected — all sessions revoked", {
+      code: ErrorCodes.REFRESH_TOKEN_REUSE,
+    });
+  }
+
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  await user.update({ refreshToken });
+
+  setAuthCookies(res, accessToken, refreshToken);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { token: accessToken, refreshToken },
+      "Token refreshed",
+    ),
+  );
 });
 
 export const getMe = asyncHandler(async (req, res) => {
@@ -169,7 +184,17 @@ export const logout = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Logout successful"));
 });
 
-export const healthCheck = asyncHandler(async (_req, res) => {
+export const healthLive = asyncHandler(async (_req, res) => {
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { status: "ok", timestamp: new Date().toISOString() },
+      "Service is alive",
+    ),
+  );
+});
+
+export const healthReady = asyncHandler(async (_req, res) => {
   let dbStatus = "ok";
 
   try {
@@ -179,17 +204,21 @@ export const healthCheck = asyncHandler(async (_req, res) => {
   }
 
   const cache = getCacheStats();
+  const ok = dbStatus === "ok";
 
-  res.status(dbStatus === "ok" ? 200 : 503).json(
+  res.status(ok ? 200 : 503).json(
     new ApiResponse(
-      dbStatus === "ok" ? 200 : 503,
+      ok ? 200 : 503,
       {
-        status: dbStatus === "ok" ? "ok" : "degraded",
+        status: ok ? "ok" : "degraded",
         timestamp: new Date().toISOString(),
         database: dbStatus,
         cache,
       },
-      dbStatus === "ok" ? "Service is healthy" : "Service degraded",
+      ok ? "Service is ready" : "Service not ready",
     ),
   );
 });
+
+/** @deprecated Use /api/health/ready */
+export const healthCheck = healthReady;

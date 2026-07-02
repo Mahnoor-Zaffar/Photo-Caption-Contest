@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { getAllImages, getImageById, buildImageCacheKey } from "../controllers/image.controller.js";
+import { getAllImages, getImageById, getImageWinner, buildImageCacheKey } from "../controllers/image.controller.js";
 import { submitCaption } from "../controllers/caption.controller.js";
 import { verifyJWT, optionalVerifyJWT } from "../middlewares/auth.middleware.js";
 import { cacheResponse } from "../middlewares/cache.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { validateUuidParam } from "../middlewares/uuid.middleware.js";
+import { captionRateLimiter } from "../middlewares/rateLimit.middleware.js";
 import { body } from "express-validator";
 
 const router = Router();
@@ -20,6 +21,13 @@ const router = Router();
  *         description: Images fetched successfully
  */
 router.get("/images", cacheResponse("images:all"), getAllImages);
+
+router.get(
+  "/images/:id/winner",
+  validateUuidParam("id"),
+  cacheResponse((req) => `images:${req.params.id}:winner`),
+  getImageWinner,
+);
 
 /**
  * @swagger
@@ -107,6 +115,7 @@ router.get(
 router.post(
   "/images/:id/captions",
   verifyJWT,
+  captionRateLimiter,
   validateUuidParam("id"),
   [
     body("text")

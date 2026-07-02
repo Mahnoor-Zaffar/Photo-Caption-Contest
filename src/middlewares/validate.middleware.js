@@ -1,5 +1,6 @@
 import { validationResult } from "express-validator";
 import { ApiError } from "../utils/ApiError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 
 export const validate = (req, _res, next) => {
   const errors = validationResult(req);
@@ -10,7 +11,10 @@ export const validate = (req, _res, next) => {
       message: err.msg,
     }));
 
-    throw new ApiError(422, "Validation failed", formattedErrors);
+    throw new ApiError(422, "Validation failed", {
+      code: ErrorCodes.VALIDATION_FAILED,
+      errors: formattedErrors,
+    });
   }
 
   next();

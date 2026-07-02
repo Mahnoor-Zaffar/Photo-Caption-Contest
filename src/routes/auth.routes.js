@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import { register, login, logout, getMe, healthCheck, refreshAccessToken } from "../controllers/auth.controller.js";
+import { register, login, logout, getMe, healthCheck, healthLive, healthReady, refreshAccessToken } from "../controllers/auth.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { authRateLimiter } from "../middlewares/rateLimit.middleware.js";
@@ -17,6 +17,8 @@ const router = Router();
  *       200:
  *         description: Service is healthy
  */
+router.get("/health/live", healthLive);
+router.get("/health/ready", healthReady);
 router.get("/health", healthCheck);
 
 /**

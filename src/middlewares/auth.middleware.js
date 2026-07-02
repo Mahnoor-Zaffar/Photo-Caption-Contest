@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/index.js";
 import { ApiError } from "../utils/ApiError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const verifyJWT = asyncHandler(async (req, _res, next) => {
@@ -9,7 +10,7 @@ export const verifyJWT = asyncHandler(async (req, _res, next) => {
     req.header("Authorization")?.replace("Bearer ", "");
 
   if (!token) {
-    throw new ApiError(401, "Unauthorized request");
+    throw new ApiError(401, "Unauthorized request", { code: ErrorCodes.UNAUTHORIZED });
   }
 
   try {
@@ -19,13 +20,14 @@ export const verifyJWT = asyncHandler(async (req, _res, next) => {
     });
 
     if (!user) {
-      throw new ApiError(401, "Invalid access token");
+      throw new ApiError(401, "Invalid access token", { code: ErrorCodes.INVALID_TOKEN });
     }
 
     req.user = user;
     next();
-  } catch {
-    throw new ApiError(401, "Invalid access token");
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(401, "Invalid access token", { code: ErrorCodes.INVALID_TOKEN });
   }
 });
 

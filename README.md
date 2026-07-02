@@ -32,16 +32,41 @@ REST API backend for a photo caption contest platform built with **Node.js**, **
 - **One vote per image** — changing your pick moves the vote (DB-enforced)
 - **Cache hit metrics** on `/api/health` (PRD target: >80% under load)
 - **Graceful shutdown** on `SIGTERM`/`SIGINT` for zero-downtime deploys
-- **Shareable contest links** (`?image=uuid`) with cold-start loader for Render free tier
+- **Health probes:** `/api/health/live` (process up) and `/api/health/ready` (DB + cache)
+- **Contest lifecycle:** images are `open` or `closed`; winner at `GET /api/images/:id/winner`
+- **Structured error codes** (e.g. `CONTEST_CLOSED`, `VOTE_ALREADY_CAST`)
+- **Refresh token rotation** with reuse detection (revokes all sessions on theft)
+- **Denormalized `voteCount`** on captions with DB indexes for leaderboard reads
+- **Caption XSS sanitization** on input; rate limits keyed by user ID after auth
+- **Playwright E2E** + Jest integration tests in CI
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Client["Browser / Postman"] --> API["Express API"]
+  API --> Auth["JWT + Refresh"]
+  API --> Cache["node-cache"]
+  Cache -->|miss| DB[(PostgreSQL)]
+  Cache -->|hit| Client
+  API -->|write| DB
+  DB -->|invalidate| Cache
+```
+
+**Read path:** `GET /api/images` checks cache → on miss, queries PostgreSQL → stores response.  
+**Write path:** caption/vote transactions update DB + denormalized counts → cache keys invalidated.
 
 ## Demo Video
 
-Record a walkthrough using the script in [`docs/DEMO.md`](docs/DEMO.md), then add your link here:
+Record a ~60s walkthrough using [`docs/DEMO.md`](docs/DEMO.md):
 
-<!-- Replace with your Loom/YouTube URL after recording -->
-**[Record demo → follow docs/DEMO.md](docs/DEMO.md)**
+1. Browse gallery → open an **open** contest  
+2. Register → submit caption → logout  
+3. Second user votes → “Your vote” badge appears  
+4. Show `/api/health/ready` cache metrics  
 
-Load test report (screenshot-ready): open [`docs/load-test-report.html`](docs/load-test-report.html) after running `npm run load-test`.
+<!-- Paste your link after recording -->
+**[Recording script → docs/DEMO.md](docs/DEMO.md)**
 
 ## Tech Stack
 
@@ -49,7 +74,7 @@ Load test report (screenshot-ready): open [`docs/load-test-report.html`](docs/lo
 - PostgreSQL + Sequelize ORM
 - bcrypt, jsonwebtoken, express-validator
 - node-cache, helmet, express-rate-limit, pino
-- Jest + Supertest
+- Jest + Supertest + Playwright
 
 ## Prerequisites
 
@@ -85,7 +110,9 @@ npm run db:reset
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/health` | No | Health check |
+| GET | `/api/health/live` | No | Liveness probe |
+| GET | `/api/health/ready` | No | Readiness (DB + cache metrics) |
+| GET | `/api/health` | No | Alias for `/ready` |
 | POST | `/api/auth/register` | No | Register a new user |
 | POST | `/api/auth/login` | No | Login and receive tokens |
 | POST | `/api/auth/refresh` | Cookie | Refresh access token |
@@ -93,6 +120,7 @@ npm run db:reset
 | GET | `/api/auth/me` | JWT | Get current user profile |
 | GET | `/api/images` | No | List all contest images (cached) |
 | GET | `/api/images/:id` | No | Get image with paginated captions (`?sort=votes`) |
+| GET | `/api/images/:id/winner` | No | Winning caption (closed contests only) |
 | POST | `/api/images/:id/captions` | JWT | Submit a caption for an image |
 | POST | `/api/captions/:id/votes` | JWT | Vote for a caption (one vote per image; moves if you change pick) |
 | DELETE | `/api/captions/:id/votes` | JWT | Remove your vote |
@@ -110,10 +138,12 @@ npm run db:reset
 ## Testing
 
 ```bash
-npm test
+npm test              # unit + integration (Jest)
+npm run test:e2e      # browser E2E (Playwright)
+npm run load-test     # cache hit ratio benchmark
 ```
 
-Unit tests run without a database. Integration tests in `tests/integration.test.js` exercise the full auth → caption → vote flow when PostgreSQL is available (CI runs migrate + seed automatically).
+Unit tests run without a database. Integration and contest tests require PostgreSQL (CI runs migrate + seed automatically).
 
 ## Docker
 
@@ -146,7 +176,7 @@ See [`docs/load-test-results.md`](docs/load-test-results.md) for sample output.
 | **Votes** | One vote per image (`UNIQUE userId+imageId`) | One vote per caption | Matches real caption contests; vote *moves* instead of stacking |
 | **Cache** | In-process `node-cache` | Redis | Simpler for single-instance Render free tier; sufficient for demo traffic |
 | **Cache scope** | Skip cache when user is logged in | Cache everything | `myVoteCaptionId` is user-specific; anonymous reads stay fast |
-| **Vote counts** | SQL subquery on read | Denormalized `voteCount` column | Fewer write paths to keep correct; acceptable at portfolio scale |
+| **Vote counts** | Denormalized `voteCount` column | SQL subquery on read | Faster leaderboard; updated atomically in vote transactions |
 | **Auth** | JWT access + refresh (cookie + Bearer) | Sessions in Redis | Stateless API, works with Swagger and mobile clients |
 | **IDs** | UUID v4 | Auto-increment integers | Safer in public URLs; no enumeration of contest entries |
 | **Frontend** | Vanilla JS in `public/` | React SPA | Zero build step on Render; API remains the portfolio focus |
@@ -164,7 +194,11 @@ See [`docs/load-test-results.md`](docs/load-test-results.md) for sample output.
 
 Build command: `npm install && npm run db:migrate`  
 Start command: `npm start`  
-Health check path: `/api/health`
+Health check path: `/api/health/ready`
+
+## Engineering decision: one vote per image
+
+Early voting allowed multiple votes on different captions for the same photo, which broke contest integrity. I added a `UNIQUE (userId, imageId)` constraint and **vote-move** semantics inside a transaction (decrement old caption count, increment new). This matches how real caption contests work and became a core README/interview talking point.
 
 ## What I Learned
 
@@ -190,6 +224,7 @@ public/              # Frontend UI
 postman/             # Postman collection + environments
 docs/                # Demo script, load test results
 tests/               # Jest + Supertest tests
+e2e/                 # Playwright browser tests
 .github/workflows/   # CI pipeline
 ```
 

@@ -11,7 +11,7 @@ services:
     plan: free
     buildCommand: npm install && npm run db:migrate
     startCommand: npm start
-    healthCheckPath: /api/health
+    healthCheckPath: /api/health/ready
     envVars:
       - key: NODE_ENV
         value: production

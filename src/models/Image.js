@@ -21,6 +21,11 @@ const Image = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    status: {
+      type: DataTypes.ENUM("open", "closed"),
+      allowNull: false,
+      defaultValue: "open",
+    },
   },
   {
     tableName: "images",

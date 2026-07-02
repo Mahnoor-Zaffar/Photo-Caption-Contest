@@ -13,6 +13,11 @@ const Caption = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    voteCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
     userId: {
       type: DataTypes.UUID,
       allowNull: false,

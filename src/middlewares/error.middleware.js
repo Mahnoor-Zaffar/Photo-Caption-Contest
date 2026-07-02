@@ -1,9 +1,11 @@
 import { ApiError } from "../utils/ApiError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 
 export const errorHandler = (err, _req, res, _next) => {
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json({
       success: false,
+      code: err.code,
       message: err.message,
       errors: err.errors,
     });
@@ -12,6 +14,7 @@ export const errorHandler = (err, _req, res, _next) => {
   if (err.name === "SequelizeUniqueConstraintError") {
     return res.status(409).json({
       success: false,
+      code: ErrorCodes.CONFLICT,
       message: "Resource already exists",
       errors: err.errors?.map((e) => ({
         field: e.path,
@@ -23,6 +26,7 @@ export const errorHandler = (err, _req, res, _next) => {
   if (err.name === "SequelizeValidationError") {
     return res.status(422).json({
       success: false,
+      code: ErrorCodes.VALIDATION_FAILED,
       message: "Validation failed",
       errors: err.errors?.map((e) => ({
         field: e.path,
@@ -35,6 +39,7 @@ export const errorHandler = (err, _req, res, _next) => {
 
   return res.status(500).json({
     success: false,
+    code: ErrorCodes.INTERNAL_ERROR,
     message: "Internal server error",
   });
 };

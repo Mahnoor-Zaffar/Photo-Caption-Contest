@@ -12,6 +12,7 @@ import logger from "./config/logger.js";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import { ApiError } from "./utils/ApiError.js";
+import { ErrorCodes } from "./utils/errorCodes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,7 +41,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api", routes);
 
 app.use("/api", (_req, _res, next) => {
-  next(new ApiError(404, "API route not found"));
+  next(new ApiError(404, "API route not found", { code: ErrorCodes.ROUTE_NOT_FOUND }));
 });
 
 app.use(errorHandler);

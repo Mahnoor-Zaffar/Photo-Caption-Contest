@@ -37,8 +37,8 @@ const router = Router();
  */
 router.post(
   "/captions/:id/votes",
-  voteRateLimiter,
   verifyJWT,
+  voteRateLimiter,
   validateUuidParam("id"),
   voteForCaption,
 );
@@ -68,8 +68,8 @@ router.post(
  */
 router.delete(
   "/captions/:id/votes",
-  voteRateLimiter,
   verifyJWT,
+  voteRateLimiter,
   validateUuidParam("id"),
   removeVote,
 );

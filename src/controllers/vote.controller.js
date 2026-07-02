@@ -1,35 +1,64 @@
-import { Caption, Vote } from "../models/index.js";
+import { Caption, Vote, Image } from "../models/index.js";
 import sequelize from "../config/sequelize.js";
 import { invalidateImageCaches } from "../config/cache.js";
 import { ApiError } from "../utils/ApiError.js";
+import { ErrorCodes } from "../utils/errorCodes.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+
+const adjustVoteCount = async (captionId, delta, transaction) => {
+  if (!captionId || delta === 0) return;
+
+  await Caption.increment("voteCount", {
+    by: delta,
+    where: { id: captionId },
+    transaction,
+  });
+};
 
 export const voteForCaption = asyncHandler(async (req, res) => {
   const { id: captionId } = req.params;
 
   const result = await sequelize.transaction(async (transaction) => {
-    const caption = await Caption.findByPk(captionId, { transaction });
+    const caption = await Caption.findByPk(captionId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
     if (!caption) {
-      throw new ApiError(404, "Caption not found");
+      throw new ApiError(404, "Caption not found", { code: ErrorCodes.CAPTION_NOT_FOUND });
+    }
+
+    const image = await caption.getImage({ transaction });
+
+    if (image.status === "closed") {
+      throw new ApiError(403, "Contest is closed for this image", {
+        code: ErrorCodes.CONTEST_CLOSED,
+      });
     }
 
     if (caption.userId === req.user.id) {
-      throw new ApiError(403, "You cannot vote for your own caption");
+      throw new ApiError(403, "You cannot vote for your own caption", {
+        code: ErrorCodes.VOTE_OWN_CAPTION,
+      });
     }
 
     const existingVote = await Vote.findOne({
       where: { userId: req.user.id, imageId: caption.imageId },
       transaction,
+      lock: transaction.LOCK.UPDATE,
     });
 
     if (existingVote) {
       if (existingVote.captionId === captionId) {
-        throw new ApiError(409, "You have already voted for this caption");
+        throw new ApiError(409, "You have already voted for this caption", {
+          code: ErrorCodes.VOTE_ALREADY_CAST,
+        });
       }
 
+      await adjustVoteCount(existingVote.captionId, -1, transaction);
       await existingVote.update({ captionId }, { transaction });
+      await adjustVoteCount(captionId, 1, transaction);
       return { vote: existingVote, moved: true };
     }
 
@@ -42,6 +71,7 @@ export const voteForCaption = asyncHandler(async (req, res) => {
       { transaction },
     );
 
+    await adjustVoteCount(captionId, 1, transaction);
     return { vote, moved: false };
   });
 
@@ -68,20 +98,35 @@ export const voteForCaption = asyncHandler(async (req, res) => {
 export const removeVote = asyncHandler(async (req, res) => {
   const { id: captionId } = req.params;
 
-  const caption = await Caption.findByPk(captionId);
+  await sequelize.transaction(async (transaction) => {
+    const caption = await Caption.findByPk(captionId, { transaction });
 
-  if (!caption) {
-    throw new ApiError(404, "Caption not found");
-  }
+    if (!caption) {
+      throw new ApiError(404, "Caption not found", { code: ErrorCodes.CAPTION_NOT_FOUND });
+    }
 
-  const deleted = await Vote.destroy({
-    where: { userId: req.user.id, imageId: caption.imageId },
+    const image = await Image.findByPk(caption.imageId, { transaction });
+
+    if (image?.status === "closed") {
+      throw new ApiError(403, "Contest is closed for this image", {
+        code: ErrorCodes.CONTEST_CLOSED,
+      });
+    }
+
+    const vote = await Vote.findOne({
+      where: { userId: req.user.id, imageId: caption.imageId },
+      transaction,
+    });
+
+    if (!vote) {
+      throw new ApiError(404, "Vote not found", { code: ErrorCodes.VOTE_NOT_FOUND });
+    }
+
+    await vote.destroy({ transaction });
+    await adjustVoteCount(vote.captionId, -1, transaction);
   });
 
-  if (!deleted) {
-    throw new ApiError(404, "Vote not found");
-  }
-
+  const caption = await Caption.findByPk(captionId);
   invalidateImageCaches(caption.imageId);
 
   res.status(200).json(new ApiResponse(200, null, "Vote removed"));

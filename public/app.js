@@ -109,7 +109,10 @@ async function loadImages() {
         (img) => `
       <article class="template-card" data-id="${img.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(img.title)}">
         <img src="${img.url}" alt="${escapeHtml(img.title)}" loading="lazy" />
-        <div class="template-card-body">${escapeHtml(img.title)}</div>
+        <div class="template-card-body">
+          ${escapeHtml(img.title)}
+          ${img.status === "closed" ? '<span class="status-badge closed">Closed</span>' : '<span class="status-badge open">Open</span>'}
+        </div>
       </article>
     `,
       )
@@ -151,7 +154,21 @@ async function openImage(id) {
     document.getElementById("detailTitle").textContent = data.title;
     document.getElementById("detailDesc").textContent = data.description || "";
     myVoteCaptionId = data.myVoteCaptionId || null;
-    renderCaptions(data.captions);
+
+    const isClosed = data.status === "closed";
+    const statusEl = document.getElementById("contestStatus");
+    statusEl.textContent = isClosed ? "This contest is closed." : "Contest open — submit and vote!";
+    statusEl.className = `contest-status ${isClosed ? "closed" : "open"}`;
+
+    document.getElementById("captionForm").classList.toggle("hidden", isClosed || !token);
+
+    if (isClosed) {
+      await loadWinner(id);
+    } else {
+      document.getElementById("winnerPanel").classList.add("hidden");
+    }
+
+    renderCaptions(data.captions, isClosed);
   } catch (e) {
     showToast(e.message);
   } finally {
@@ -159,7 +176,7 @@ async function openImage(id) {
   }
 }
 
-function renderCaptions(captions) {
+function renderCaptions(captions, isClosed = false) {
   const list = document.getElementById("captionList");
   if (!captions.length) {
     list.innerHTML = '<p class="detail-desc">No captions yet. Be the first!</p>';
@@ -172,6 +189,7 @@ function renderCaptions(captions) {
         const isMine = c.author === currentUsername;
         const isMyVote = myVoteCaptionId === c.id;
         const voteLabel = myVoteCaptionId && !isMyVote ? "Move vote here" : "Vote";
+        const canVote = token && !isMine && !isClosed;
 
         return `
     <div class="caption-card${isMyVote ? " caption-voted" : ""}">
@@ -179,7 +197,7 @@ function renderCaptions(captions) {
       ${isMyVote ? '<span class="leader-badge vote-badge">Your vote</span>' : ""}
       <div class="caption-text">${escapeHtml(c.text)}</div>
       <div class="caption-meta">by ${escapeHtml(c.author)} · ${c.voteCount} votes</div>
-      ${token && !isMine ? `<button class="btn btn-secondary voteBtn" data-id="${c.id}" style="margin-top:12px;width:auto" aria-label="${voteLabel} for caption by ${escapeHtml(c.author)}">${voteLabel}</button>` : ""}
+      ${canVote ? `<button class="btn btn-secondary voteBtn" data-id="${c.id}" style="margin-top:12px;width:auto" aria-label="${voteLabel} for caption by ${escapeHtml(c.author)}">${voteLabel}</button>` : ""}
     </div>
   `;
       },
@@ -199,6 +217,24 @@ function renderCaptions(captions) {
       }
     };
   });
+}
+
+async function loadWinner(imageId) {
+  const panel = document.getElementById("winnerPanel");
+  try {
+    const { data } = await api(`/images/${imageId}/winner`);
+    panel.classList.remove("hidden");
+    panel.innerHTML = `
+      <h3 class="section-title" style="font-size:18px;margin-bottom:8px">🏆 Contest winner</h3>
+      <div class="caption-card caption-voted">
+        <div class="caption-text">${escapeHtml(data.winner.text)}</div>
+        <div class="caption-meta">by ${escapeHtml(data.winner.author)} · ${data.winner.voteCount} votes</div>
+      </div>
+    `;
+  } catch {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+  }
 }
 
 function escapeHtml(str) {
