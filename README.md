@@ -1,18 +1,23 @@
-# Photo Caption Contest API
+# Photo Caption Contest
 
 [![CI](https://github.com/Mahnoor-Zaffar/Photo-Caption-Contest/actions/workflows/ci.yml/badge.svg)](https://github.com/Mahnoor-Zaffar/Photo-Caption-Contest/actions/workflows/ci.yml)
 
-REST API backend for a photo caption contest platform built with **Node.js**, **Express**, **PostgreSQL**, and **Sequelize ORM**. Includes a Framer-inspired frontend, JWT auth with refresh tokens, voting, caching, and Swagger docs.
+Full-stack photo caption contest: **JWT auth + refresh rotation**, **one-vote-per-image with transactions**, **read-through cache with >80% hit ratio under load**, **Playwright E2E + CI on PostgreSQL**.
 
-> **Resume line:** Built a full-stack photo caption contest API with JWT auth, PostgreSQL transactions, vote leaderboards, node-cache, Docker, CI, and Render deployment.
+> **Resume line:** JWT auth + refresh rotation, one-vote-per-image with transactions, read-through cache with >80% hit ratio under load, Playwright E2E + CI on PostgreSQL.
 
 ## Live Demo
 
-- **App:** [https://photo-caption-api.onrender.com](https://photo-caption-api.onrender.com)
-- **Swagger:** [https://photo-caption-api.onrender.com/api-docs](https://photo-caption-api.onrender.com/api-docs)
-- **Health:** [https://photo-caption-api.onrender.com/api/health](https://photo-caption-api.onrender.com/api/health)
+| | Link |
+|---|------|
+| **App** | [photo-caption-api.onrender.com](https://photo-caption-api.onrender.com) |
+| **Open contest (deep link)** | [City Skyline contest](https://photo-caption-api.onrender.com/?image=00000000-0000-4000-8000-000000000001) |
+| **Swagger** | [/api-docs](https://photo-caption-api.onrender.com/api-docs) |
+| **CI** | [GitHub Actions](https://github.com/Mahnoor-Zaffar/Photo-Caption-Contest/actions/workflows/ci.yml) |
 
 > First request after idle on Render free tier may take ~50 seconds (cold start).
+
+Built with Node.js, Express 5, PostgreSQL, and Sequelize — includes a Framer-inspired frontend, Swagger docs, Docker, and Render deployment.
 
 ## Features
 
@@ -98,7 +103,17 @@ npm run dev
 
 ### Contest images (seed data)
 
-On first startup (or after `npm run db:seed`), five demo contest images are inserted from `src/seeders/20250628000001-demo-images.js`. Images use stable Picsum URLs — no admin upload endpoint is required for the demo.
+On first startup (or after `npm run db:seed`), five demo contest images are inserted from `src/seeders/20250628000001-demo-images.js`. Images use stable Picsum URLs and **fixed UUIDs** so README deep links stay valid:
+
+| Contest | ID | Status |
+|---------|-----|--------|
+| City Skyline | `00000000-0000-4000-8000-000000000001` | open |
+| Mountain Lake | `00000000-0000-4000-8000-000000000002` | open |
+| Beach Sunset | `00000000-0000-4000-8000-000000000003` | open |
+| Forest Trail | `00000000-0000-4000-8000-000000000004` | open |
+| Desert Dunes | `00000000-0000-4000-8000-000000000005` | closed |
+
+Local deep link example: `http://localhost:8000/?image=00000000-0000-4000-8000-000000000001`
 
 To reset everything locally:
 

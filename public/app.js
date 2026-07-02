@@ -65,6 +65,14 @@ async function parseJsonResponse(res) {
   }
 }
 
+function getApiErrorMessage(data, fallback = "Request failed") {
+  if (data?.message) return data.message;
+  if (Array.isArray(data?.errors) && data.errors.length) {
+    return data.errors.map((e) => e.message).filter(Boolean).join(" · ");
+  }
+  return fallback;
+}
+
 async function api(path, opts = {}, retried = false) {
   const res = await fetch(API + path, {
     credentials: "include",
@@ -87,7 +95,7 @@ async function api(path, opts = {}, retried = false) {
     }
   }
 
-  if (!res.ok) throw new Error(data.message || "Request failed");
+  if (!res.ok) throw new Error(getApiErrorMessage(data));
   return data;
 }
 
@@ -404,7 +412,7 @@ document.getElementById("loginBtn").onclick = async () => {
     await completeAuth(data);
     showToast("Welcome back!", "success");
   } catch (e) {
-    showToast(e.message);
+    showToast(e.message, "error");
   } finally {
     btn.disabled = false;
   }
@@ -425,7 +433,7 @@ document.getElementById("registerBtn").onclick = async () => {
     await completeAuth(data);
     showToast("Account created!", "success");
   } catch (e) {
-    showToast(e.message);
+    showToast(e.message, "error");
   } finally {
     btn.disabled = false;
   }
